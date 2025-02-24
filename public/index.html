@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Real-Time Taxi Tracker</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+    />
+    <style>
+      .leaflet-marker-icon {
+        transition: transform 0.3s linear;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Real-Time Taxi Tracking</h1>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://rawcdn.githack.com/bbecquet/Leaflet.RotatedMarker/0.2.0/leaflet.rotatedMarker.js"></script>
+
+    <script>
+
+        let isFollowing = true;
+
+        const map = L.map("map").setView([25.0961, 85.3131], 10);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "© OpenStreetMap contributors",
+        }).addTo(map);
+
+        let taxiData = {};
+
+        function calculateBearing(lat1, lng1, lat2, lng2) {
+          const toRad = Math.PI / 180;
+          const toDeg = 180 / Math.PI;
+          const dLon = (lng2 - lng1) * toRad;
+          const y = Math.sin(dLon) * Math.cos(lat2 * toRad);
+          const x =
+            Math.cos(lat1 * toRad) * Math.sin(lat2 * toRad) -
+            Math.sin(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.cos(dLon);
+          const brng = Math.atan2(y, x) * toDeg;
+          return (brng + 360) % 360;
+        }
+
+        async function fetchTaxis() {
+          try {
+            const response = await fetch("http://localhost:3000/get_cabs");
+            if (!response.ok) throw new Error("Network response was not ok");
+
+            const result = await response.json();
+            console.log("Received Taxi Data:", result);
+
+            if (result.token_expired || !result.status) {
+              console.error("API Error:", result.response);
+              return;
+            }
+            if (!result.data) {
+              console.warn("No taxi data found in the API response:", result);
+              return;
+            }
+
+            const taxi = result.data;
+            const cab_reg = taxi.cab_reg;
+            const cab_image = taxi.icon;
+
+            console.log("Icon URL is:", cab_image);
+
+            if (
+              !taxi.lat_long ||
+              !Array.isArray(taxi.lat_long) ||
+              taxi.lat_long.length < 2
+            ) {
+              console.warn(
+                `lat_long array for taxi ${cab_reg} is missing or incomplete:`,
+                taxi.lat_long
+              );
+              return;
+            }
+
+            const [pos1, pos2] = taxi.lat_long;
+            const startLat = parseFloat(pos1.lat);
+            const startLng = parseFloat(pos1.long);
+            const endLat = parseFloat(pos2.lat);
+            const endLng = parseFloat(pos2.long);
+            const info1 = pos1.info;
+            const info2 = pos2.info;
+
+            const iconUrl =
+              cab_image ||
+              "https://upload.wikimedia.org/wikipedia/commons/8/88/Map_marker.svg";
+            console.log("Using icon URL:", iconUrl);
+
+            if (!taxiData[cab_reg]) {
+              const carIcon = L.icon({
+                iconUrl: iconUrl,
+                iconSize: [25, 30],
+                iconAnchor: [12, 15],
+              });
+              console.log("Creating marker at:", startLat, startLng);
+              const marker = L.marker([startLat, startLng], {
+                icon: carIcon,
+                rotationAngle: 0,
+                rotationOrigin: "center center",
+              })
+                .addTo(map)
+                .bindPopup(`🚖 ${cab_reg}<br>${info1}`);
+
+              taxiData[cab_reg] = {
+                marker,
+                polyline: L.polyline([[startLat, startLng]], {
+                  color: "transparent",
+                  weight: 3,
+                }).addTo(map),
+                lastPosition: { lat: startLat, lng: startLng },
+              };
+            } else {
+              const carIcon = L.icon({
+                iconUrl: iconUrl,
+                iconSize: [25, 30],
+                iconAnchor: [12, 15],
+              });
+              taxiData[cab_reg].marker.setIcon(carIcon);
+            }
+
+            animateTaxi(
+              cab_reg,
+              { lat: startLat, lng: startLng },
+              { lat: endLat, lng: endLng },
+              120000
+            );
+            taxiData[cab_reg].marker.bindPopup(
+              `🚖 ${cab_reg}<br>From: ${info1}<br>To: ${info2}`
+            );
+          } catch (error) {
+            console.error("Error fetching taxi data:", error);
+          } finally {
+            setTimeout(fetchTaxis, 120000);
+          }
+        }
+
+        function animateTaxi(cab_reg, startPos, endPos, duration) {
+          const taxi = taxiData[cab_reg];
+          if (!taxi) return;
+
+          taxi.marker.setLatLng([startPos.lat, startPos.lng]);
+
+          const startTime = performance.now();
+          function step(now) {
+            const elapsed = now - startTime;
+            let progress = elapsed / duration;
+            if (progress > 1) progress = 1;
+
+            const currentLat =
+              startPos.lat + (endPos.lat - startPos.lat) * progress;
+            const currentLng =
+              startPos.lng + (endPos.lng - startPos.lng) * progress;
+            taxi.marker.setLatLng([currentLat, currentLng]);
+
+            const bearing = calculateBearing(
+              currentLat,
+              currentLng,
+              endPos.lat,
+              endPos.lng
+            );
+            taxi.marker.setRotationAngle(bearing);
+
+            if (isFollowing) {
+              map.panTo([currentLat, currentLng]);
+            }
+
+            taxi.polyline.setLatLngs([
+              [startPos.lat, startPos.lng],
+              [currentLat, currentLng],
+            ]);
+
+            if (progress < 1) {
+              requestAnimationFrame(step);
+            } else {
+              taxi.lastPosition = { lat: endPos.lat, lng: endPos.lng };
+            }
+          }
+          requestAnimationFrame(step);
+        }
+
+        fetchTaxis();
+    </script>
+  </body>
+</html>
