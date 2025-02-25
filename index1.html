@@ -5,33 +5,50 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Real-Time Taxi Tracker</title>
     <link rel="stylesheet" href="public/styles.css" />
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
-    />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <style>
       .leaflet-marker-icon {
         transition: transform 0.3s linear;
       }
       #map {
-        height: 90vh;
+        height: 80vh;
+      }
+      #controls {
+        margin: 10px;
       }
     </style>
   </head>
   <body>
     <h1>Real-Time Taxi Tracking</h1>
+    <div id="controls">
+      <label for="followSelect">Follow Taxi:</label>
+      <select id="followSelect">
+        <option value="all">All</option>
+      </select>
+    </div>
     <div id="map"></div>
 
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script src="https://rawcdn.githack.com/bbecquet/Leaflet.RotatedMarker/0.2.0/leaflet.rotatedMarker.js"></script>
     <script>
-      let isFollowing = false;
-      const map = L.map("map").setView([25.0961, 85.3131], 10);
+      
+      let followCab = "all";
+
+      const followSelect = document.getElementById("followSelect");
+      followSelect.addEventListener("change", (e) => {
+        followCab = e.target.value;
+        if (followCab === "all") {
+          map.setView([25.623240, 85.041775], 10); 
+        } else if (taxiData[followCab]) {
+          const { lat, long } = taxiData[followCab].lastPosition;
+          map.setView([lat, long], 15); 
+        }
+      });
+
+      const map = L.map("map").setView([25.623240, 85.041775], 7);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "© OpenStreetMap contributors",
       }).addTo(map);
-
-      // Object to store taxi markers by their registration number
       let taxiData = {};
 
       async function fetchTaxis() {
@@ -56,21 +73,17 @@
             console.warn("No valid taxi data found.");
             return;
           }
+          updateDropdown(result.data);
 
           result.data.forEach((val) => {
-            // Validate that required data is available
             if (!val.cab_reg || !Array.isArray(val.lat_long) || val.lat_long.length < 2) {
               return;
             }
-
-            // For taxis with more than 2 points, use the last two coordinates.
             const points = val.lat_long;
             const startPoint = points.length >= 2 ? points[points.length - 2] : points[0];
             const endPoint = points[points.length - 1];
-
             const iconUrl = val.icon || "https://rodbez.in/web_assets/icons/avl.png";
 
-            // Create new marker if this cab hasn't been added yet
             if (!taxiData[val.cab_reg]) {
               const carIcon = L.icon({
                 iconUrl,
@@ -95,7 +108,6 @@
                 lastPosition: { lat: startPoint.lat, long: startPoint.long },
               };
             } else {
-              // Update the icon in case it has changed
               taxiData[val.cab_reg].marker.setIcon(
                 L.icon({
                   iconUrl,
@@ -105,15 +117,14 @@
               );
             }
 
-            // Animate the taxi to the new position
             animateTaxi(
               taxiData[val.cab_reg],
               { lat: startPoint.lat, long: startPoint.long },
               { lat: endPoint.lat, long: endPoint.long },
-              120000
+              120000,
+              val.cab_reg
             );
 
-            // Update the popup content with the new route info
             taxiData[val.cab_reg].marker.bindPopup(
               `🚖 ${val.cab_reg}<br>From: ${startPoint.info}<br>To: ${endPoint.info}`
             );
@@ -121,14 +132,25 @@
         } catch (error) {
           console.error("Error fetching taxi data:", error);
         } finally {
-          setTimeout(fetchTaxis, 120000); // Refresh data every 2 minutes
+          setTimeout(fetchTaxis, 120000); 
         }
       }
 
-      function animateTaxi(taxi, startPos, endPos, duration) {
-        if (!taxi) return;
+      function updateDropdown(data) {
+        followSelect.innerHTML = '<option value="all">All</option>'; 
 
-        // Set initial position using consistent property names
+        data.forEach((val) => {
+          if (val.cab_reg) {
+            const option = document.createElement("option");
+            option.value = val.cab_reg;
+            option.textContent = val.cab_reg;
+            followSelect.appendChild(option);
+          }
+        });
+      }
+
+      function animateTaxi(taxi, startPos, endPos, duration, cabReg) {
+        if (!taxi) return;
         taxi.marker.setLatLng([startPos.lat, startPos.long]);
         const startTime = performance.now();
 
@@ -137,7 +159,6 @@
           let progress = elapsed / duration;
           if (progress > 1) progress = 1;
 
-          // Calculate current position using 'long' instead of 'lng'
           const currentLat = startPos.lat + (endPos.lat - startPos.lat) * progress;
           const currentLong = startPos.long + (endPos.long - startPos.long) * progress;
           taxi.marker.setLatLng([currentLat, currentLong]);
@@ -145,7 +166,7 @@
           const bearing = calculateBearing(currentLat, currentLong, endPos.lat, endPos.long);
           taxi.marker.setRotationAngle(bearing);
 
-          if (isFollowing) {
+          if (followCab === cabReg) {
             map.panTo([currentLat, currentLong]);
           }
 
