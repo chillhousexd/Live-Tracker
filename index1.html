@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Real-Time Taxi Tracker</title>
     <link rel="stylesheet" href="public/styles.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+    />
     <style>
       .leaflet-marker-icon {
         transition: transform 0.3s linear;
@@ -31,21 +34,20 @@
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script src="https://rawcdn.githack.com/bbecquet/Leaflet.RotatedMarker/0.2.0/leaflet.rotatedMarker.js"></script>
     <script>
-      
       let followCab = "all";
 
       const followSelect = document.getElementById("followSelect");
       followSelect.addEventListener("change", (e) => {
         followCab = e.target.value;
         if (followCab === "all") {
-          map.setView([25.623240, 85.041775], 10); 
+          map.setView([25.62324, 85.041775], 10);
         } else if (taxiData[followCab]) {
           const { lat, long } = taxiData[followCab].lastPosition;
-          map.setView([lat, long], 15); 
+          map.setView([lat, long], 15);
         }
       });
 
-      const map = L.map("map").setView([25.623240, 85.041775], 7);
+      const map = L.map("map").setView([25.62324, 85.041775], 7);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "© OpenStreetMap contributors",
       }).addTo(map);
@@ -76,13 +78,19 @@
           updateDropdown(result.data);
 
           result.data.forEach((val) => {
-            if (!val.cab_reg || !Array.isArray(val.lat_long) || val.lat_long.length < 2) {
+            if (
+              !val.cab_reg ||
+              !Array.isArray(val.lat_long) ||
+              val.lat_long.length < 2
+            ) {
               return;
             }
             const points = val.lat_long;
-            const startPoint = points.length >= 2 ? points[points.length - 2] : points[0];
+            const startPoint =
+              points.length >= 2 ? points[points.length - 2] : points[0];
             const endPoint = points[points.length - 1];
-            const iconUrl = val.icon || "https://rodbez.in/web_assets/icons/avl.png";
+            const iconUrl =
+              val.icon || "https://rodbez.in/web_assets/icons/avl.png";
 
             if (!taxiData[val.cab_reg]) {
               const carIcon = L.icon({
@@ -132,12 +140,12 @@
         } catch (error) {
           console.error("Error fetching taxi data:", error);
         } finally {
-          setTimeout(fetchTaxis, 120000); 
+          setTimeout(fetchTaxis, 120000);
         }
       }
 
       function updateDropdown(data) {
-        followSelect.innerHTML = '<option value="all">All</option>'; 
+        followSelect.innerHTML = '<option value="all">All</option>';
 
         data.forEach((val) => {
           if (val.cab_reg) {
@@ -159,11 +167,18 @@
           let progress = elapsed / duration;
           if (progress > 1) progress = 1;
 
-          const currentLat = startPos.lat + (endPos.lat - startPos.lat) * progress;
-          const currentLong = startPos.long + (endPos.long - startPos.long) * progress;
+          const currentLat =
+            startPos.lat + (endPos.lat - startPos.lat) * progress;
+          const currentLong =
+            startPos.long + (endPos.long - startPos.long) * progress;
           taxi.marker.setLatLng([currentLat, currentLong]);
 
-          const bearing = calculateBearing(currentLat, currentLong, endPos.lat, endPos.long);
+          const bearing = calculateBearing(
+            currentLat,
+            currentLong,
+            endPos.lat,
+            endPos.long
+          );
           taxi.marker.setRotationAngle(bearing);
 
           if (followCab === cabReg) {
