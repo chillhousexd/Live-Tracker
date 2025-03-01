@@ -1,5 +1,4 @@
 let followCab = "all";
-
 const x = document.getElementById("demo");
 let userLocation = null;
 
@@ -28,25 +27,10 @@ function showPosition(position) {
 }
 getLocation();
 
-const followSelect = document.getElementById("followSelect");
-followSelect.addEventListener("change", (e) => {
+const followSelect = document.getElementById("searchButton");
+followSelect.addEventListener("click", (e) => {
   followCab = e.target.value;
-
-  if (followCab === "all") {
-    map.setView([25.62324, 85.041775], 10);
-  } else if (taxiData[followCab]) {
-    const { lat, long } = taxiData[followCab].lastPosition;
-    map.setView([lat, long], 15);
-
-    if (userLocation) {
-      const distance = calculateDistance(
-        userLocation.lat,
-        userLocation.long,
-        lat,
-        long
-      );
-    }
-  }
+  map.setView([25.62324, 85.041775], 10);
 });
 
 const map = L.map("map").setView([25.62324, 85.041775], 7);
@@ -55,6 +39,51 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 }).addTo(map);
 
 let taxiData = {};
+
+const searchCabInput = document.getElementById("searchCab");
+const suggestionsList = document.getElementById("suggestions");
+
+searchCabInput.addEventListener("input", () => {
+  const query = searchCabInput.value.toLowerCase();
+  updateSuggestions(query);
+});
+
+function updateSuggestions(query) {
+  suggestionsList.innerHTML = "";
+  suggestionsList.style.display = "none";
+
+  if (!query) return;
+
+  const matches = Object.keys(taxiData).filter((cab) =>
+    cab.toLowerCase().includes(query)
+  );
+
+  if (matches.length === 0) return;
+
+  suggestionsList.style.display = "block";
+  matches.forEach((cab) => {
+    const li = document.createElement("li");
+    li.textContent = cab;
+    li.addEventListener("click", () => selectCab(cab));
+    suggestionsList.appendChild(li);
+  });
+}
+
+function selectCab(cab) {
+  searchCabInput.value = cab;
+  suggestionsList.innerHTML = "";
+  suggestionsList.style.display = "none";
+  followCab = cab;
+
+  if (taxiData[cab]) {
+    const { lat, long } = taxiData[cab].lastPosition;
+    map.setView([lat, long], 15);
+
+    if (userLocation) {
+      calculateDistance(userLocation.lat, userLocation.long, lat, long);
+    }
+  }
+}
 
 async function calculateDistance(a, b, c, d) {
   try {
@@ -99,7 +128,7 @@ async function fetchTaxis() {
       return;
     }
 
-    updateDropdown(result.data);
+    // updateDropdown(result.data);
 
     result.data.forEach((val) => {
       if (
@@ -169,18 +198,18 @@ async function fetchTaxis() {
   }
 }
 
-function updateDropdown(data) {
-  followSelect.innerHTML = '<option value="all">All</option>';
+// function updateDropdown(data) {
+//   followSelect.innerHTML = '<option value="all">All</option>';
 
-  data.forEach((val) => {
-    if (val.cab_reg) {
-      const option = document.createElement("option");
-      option.value = val.cab_reg;
-      option.textContent = val.cab_reg;
-      followSelect.appendChild(option);
-    }
-  });
-}
+//   data.forEach((val) => {
+//     if (val.cab_reg) {
+//       const option = document.createElement("option");
+//       option.value = val.cab_reg;
+//       option.textContent = val.cab_reg;
+//       followSelect.appendChild(option);
+//     }
+//   });
+// }
 
 function animateTaxi(taxi, startPos, endPos, duration, cabReg) {
   if (!taxi) return;

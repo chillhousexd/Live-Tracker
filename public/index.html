@@ -13,39 +13,30 @@
       referrerpolicy="no-referrer"
     />
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        text-align: center;
-      }
-      #map {
-        height: 500px;
-        width: 80%;
-        margin: auto;
-        border: 2px solid black;
-        border-radius: 10px;
-      }
-      select {
-        margin: 10px;
-        padding: 5px;
-        font-size: 16px;
-      }
-    </style>
+    <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <div id="demo"></div>
     <h1>Live Cab Tracker</h1>
-    <div style="display: flex; align-items: center;gap: 20px; width: 80%; margin: auto;">
-      <label for="followSelect">Follow Cab:</label>
-      <select id="followSelect">
-        <option value="all">All</option>
-      </select>
+    <div
+      style="
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        width: 80%;
+        margin: auto;
+      "
+    >
+      <div class="search-container">
+        <input type="text" id="searchCab" placeholder="Enter Cab Number..." autocomplete="off" />
+        <button id="searchButton">Search all</button>
+        <ul id="suggestions"></ul>
+      </div>
       <div id="durdist">
         <span><i class="fa-solid fa-location-dot"></i></span>
         <span id="distance"></span>
         <span><i class="fa-solid fa-clock"></i></span>
         <span id="duration"></span>
-
       </div>
     </div>
     <div id="map"></div>
