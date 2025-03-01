@@ -3,6 +3,10 @@ let followCab = "all";
 const x = document.getElementById("demo");
 let userLocation = null;
 
+let dur = document.getElementById("duration");
+let dist = document.getElementById("distance");
+let dd = document.getElementById("durdist");
+
 function getLocation() {
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(showPosition);
@@ -27,11 +31,21 @@ getLocation();
 const followSelect = document.getElementById("followSelect");
 followSelect.addEventListener("change", (e) => {
   followCab = e.target.value;
+
   if (followCab === "all") {
     map.setView([25.62324, 85.041775], 10);
   } else if (taxiData[followCab]) {
     const { lat, long } = taxiData[followCab].lastPosition;
     map.setView([lat, long], 15);
+
+    if (userLocation) {
+      const distance = calculateDistance(
+        userLocation.lat,
+        userLocation.long,
+        lat,
+        long
+      );
+    }
   }
 });
 
@@ -42,18 +56,31 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 
 let taxiData = {};
 
-function calculateDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * (Math.PI / 180);
-  const dLon = (lon2 - lon1) * (Math.PI / 180);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * (Math.PI / 180)) *
-      Math.cos(lat2 * (Math.PI / 180)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+async function calculateDistance(a, b, c, d) {
+  try {
+    const apiKey = "tNLDcOe2j8ZwyzeYL5stJiwUWqUxOm5qbWR3Yd4k";
+    const url = `https://api.olamaps.io/routing/v1/distanceMatrix?origins=${a},${b}&destinations=${c},${d}&api_key=${apiKey}`;
+
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Failed to calculate distance");
+
+    const data = await response.json();
+    console.log("API Response:", data);
+
+    if (followCab !== "all") {
+      dd.style.display = "block";
+
+      let timeInHours = (data.rows[0].elements[0].duration / 3600).toFixed(2); 
+      let distanceInKm = (data.rows[0].elements[0].distance / 1000).toFixed(2);
+
+      dur.innerHTML = timeInHours + "hours"; 
+      dist.innerHTML = distanceInKm + "km"; 
+    } else {
+      dd.style.display = "none";
+    }
+  } catch (error) {
+    console.error("Error calculating distance:", error.message || error);
+  }
 }
 
 async function fetchTaxis() {
@@ -86,10 +113,8 @@ async function fetchTaxis() {
 
       const points = val.lat_long;
       const startPoint = points[points.length - 2] || points[0];
-      const endPoint = points[points.length - 1];
+      const endPoint = points[points.length - 1] || points[1];
       const iconUrl = val.icon || "https://rodbez.in/web_assets/icons/avl.png";
-
-      let distanceText = "Distance: Unknown"; // Default value
 
       if (userLocation) {
         const distance = calculateDistance(
@@ -98,7 +123,6 @@ async function fetchTaxis() {
           endPoint.lat,
           endPoint.long
         );
-        distanceText = `📍 ${distance.toFixed(2)} km away`;
       }
 
       if (!taxiData[val.cab_reg]) {
@@ -108,7 +132,7 @@ async function fetchTaxis() {
           iconAnchor: [12, 15],
         });
 
-        const popupContent = `🚖 ${val.cab_reg}<br>${startPoint.info}<br>${distanceText}`;
+        const popupContent = `🚖 ${val.cab_reg}<br>${startPoint.info}`;
 
         const marker = L.marker([startPoint.lat, startPoint.long], {
           icon: carIcon,
@@ -126,11 +150,17 @@ async function fetchTaxis() {
           lastPosition: { lat: startPoint.lat, long: startPoint.long },
         };
       } else {
-        const popupContent = `🚖 ${val.cab_reg}<br>${startPoint.info}<br>${distanceText}`;
+        const popupContent = `🚖 ${val.cab_reg}<br>${startPoint.info}`;
         taxiData[val.cab_reg].marker.setPopupContent(popupContent);
       }
 
-      animateTaxi(taxiData[val.cab_reg], startPoint, endPoint, 120000, val.cab_reg);
+      animateTaxi(
+        taxiData[val.cab_reg],
+        startPoint,
+        endPoint,
+        120000,
+        val.cab_reg
+      );
     });
   } catch (error) {
     console.error("Error fetching taxi data:", error);

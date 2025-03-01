@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Live Cab Tracker</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+      integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <style>
       body {
@@ -28,8 +35,19 @@
   <body>
     <div id="demo"></div>
     <h1>Live Cab Tracker</h1>
-    <label for="followSelect">Follow a Cab:</label>
-    <select id="followSelect"></select>
+    <div style="display: flex; align-items: center;gap: 20px; width: 80%; margin: auto;">
+      <label for="followSelect">Follow Cab:</label>
+      <select id="followSelect">
+        <option value="all">All</option>
+      </select>
+      <div id="durdist">
+        <span><i class="fa-solid fa-location-dot"></i></span>
+        <span id="distance"></span>
+        <span><i class="fa-solid fa-clock"></i></span>
+        <span id="duration"></span>
+
+      </div>
+    </div>
     <div id="map"></div>
 
     <script src="https://rawgit.com/bbecquet/Leaflet.RotatedMarker/master/leaflet.rotatedMarker.js"></script>
